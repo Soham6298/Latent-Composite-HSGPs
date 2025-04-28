@@ -38,7 +38,7 @@ data {
 	int<lower=1> D;       // output dims
 	vector[N] inputs;				//matrix of total (training and test) observations
 	real x_min;      // lower bound for true_x prior
-	real x_max;      // upper bound for true_x prior
+	real<lower=x_min> x_max;      // upper bound for true_x prior
 	matrix[N, D] y1; // for output 1
 	matrix[N, D] y2; // for output 2
 	real<lower=0> s; // measurement sd for latent inputs
@@ -103,7 +103,7 @@ transformed parameters{
 	matrix[N,M_g] PHI_g;
 	cholesky_factor_corr[D] L_omega;
 	 if (latent) {
-	  //x = inputs + z * s;
+	  // x = inputs + z * s;
 	  x = x_temp;
 	} else{
 	  x = inputs;
@@ -132,28 +132,30 @@ transformed parameters{
     L_omega = L_omega_temp;
   }
 	for (m in 1:M_f){
-	  PHI_f[,m] = phi(L, m, x);
+	  PHI_f[, m] = phi(L, m, x);
 	}
 	for (m in 1:M_g){
-	  PHI_g[,m] = phi(L, m, x);
+	  PHI_g[, m] = phi(L, m, x);
 	}
-	for(j in 1:D){
-	 for(m in 1:M_f){ 
-	  if(covfn==1){
-	    diagSPD_f[m] =  sqrt(spd_m32(alpha_f[j], rho_f[j], sqrt(lambda(L, m))));
-	  }else if(covfn==2){
-	    diagSPD_f[m] =  sqrt(spd_m52(alpha_f[j], rho_f[j], sqrt(lambda(L, m))));
-	  }else{
-	    diagSPD_f[m] =  sqrt(spd_se(alpha_f[j], rho_f[j], sqrt(lambda(L, m)))); 
+	for (j in 1:D) {
+	  for (m in 1:M_f) { 
+	    if (covfn==1) {
+	      diagSPD_f[m] = sqrt(spd_m32(alpha_f[j], rho_f[j], sqrt(lambda(L, m))));
+	    } else if (covfn==2) {
+	      diagSPD_f[m] = sqrt(spd_m52(alpha_f[j], rho_f[j], sqrt(lambda(L, m))));
+	    } else {
+	      diagSPD_f[m] = sqrt(spd_se(alpha_f[j], rho_f[j], sqrt(lambda(L, m)))); 
+	    }
 	  }
-	 }
-	  for(m in 1:M_g){
-	    if(covfn==1){
-	      diagSPD_g[m] =  sqrt(spd_m32(alpha_g[j], rho_g[j], sqrt(lambda(L, m)))); 
-	    }else if(covfn==2){
-	      diagSPD_g[m] =  sqrt(spd_m52(alpha_g[j], rho_g[j], sqrt(lambda(L, m)))); 
-	    }else{
-	      diagSPD_g[m] =  sqrt(spd_se(alpha_g[j], rho_g[j], sqrt(lambda(L, m)))); 
+	  for (m in 1:M_g) {
+	    // TODO: compute this in transformed data
+	    real sqrt_lambda_m = sqrt(lambda(L, m));
+	    if (covfn==1) {
+	      diagSPD_g[m] = sqrt(spd_m32(alpha_g[j], rho_g[j], sqrt_lambda_m)); 
+	    } else if (covfn==2) {
+	      diagSPD_g[m] = sqrt(spd_m52(alpha_g[j], rho_g[j], sqrt_lambda_m)); 
+	    } else {
+	      diagSPD_g[m] = sqrt(spd_se(alpha_g[j], rho_g[j], sqrt_lambda_m)); 
 	    }
 	  }
 	  SPD_beta_f[,j] = diagSPD_f .* beta_f[j];
@@ -162,8 +164,8 @@ transformed parameters{
 	  g[,j] = PHI_g * SPD_beta_g[,j]; 
 	}
 	// For correlated outputs
-    f = f * L_omega';
-    g = g * L_omega';
+  f = f * L_omega';
+  g = g * L_omega';
 }
 
 model{
@@ -185,7 +187,7 @@ model{
   sigma_temp_g ~ normal(esd_param_g[1], esd_param_g[2]);
   L_omega_temp ~ lkj_corr_cholesky(1);
   if (latent) {
-    //z ~ std_normal();
+    // z ~ std_normal();
     inputs ~ normal(x_temp, s);
 	}
 	// set prior on x to match data generating process 
@@ -196,7 +198,7 @@ model{
 	}
 	// Likelihood
 	for(j in 1:D) {
-	 y1[,j] ~ normal(intercept_y1[j] + f[,j], sigma_f[j]);  
-	 y2[,j] ~ normal(intercept_y2[j] + g[,j], sigma_g[j]); 
+	  y1[,j] ~ normal(intercept_y1[j] + f[,j], sigma_f[j]);  
+	  y2[,j] ~ normal(intercept_y2[j] + g[,j], sigma_g[j]); 
 	}
 }
