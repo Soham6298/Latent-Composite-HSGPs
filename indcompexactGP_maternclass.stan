@@ -1,40 +1,67 @@
 functions {
-	real lambda(real L, int m) {
-		real lam;
-		lam = ((m*pi())/(2*L))^2;
-				
-		return lam;
-	}
-	vector phi(real L, int m, vector x) {
-		vector[rows(x)] fi;
-		fi = 1/sqrt(L) * sin(m*pi()/(2*L) * (x+L));
-				
-		return fi;
-	}
-	// Spectral densities
-	real spd_se(real alpha, real rho, real w) {
-		real S;
-		S = (alpha^2) * sqrt(2*pi()) * rho * exp(-0.5*(rho^2)*(w^2));
-				
-		return S;
-	}
-	real spd_m32(real alpha, real rho, real w) {
-		real S;
-		S = (alpha^2) * ((2 * tgamma(2) * 3^(1.5)) / (0.5 * rho^3)) * ((3/rho^2) + (w^2))^(-2);
-		return S;
-	}
-	real spd_m52(real alpha, real rho, real w) {
-		real S;
-		S = (alpha^2) * ((2 * tgamma(3) * 5^(2.5)) / (0.75 * rho^5)) * ((5/rho^2) + (w^2))^(-3);
-		return S;
-	}
+  // base covariance fn
+  
+  // SE
+    matrix se(vector x, real alpha_obs, real rho, real delta) {
+    int N = rows(x);
+    matrix[N, N] K;
+    real sq_rho = square(rho);
+    real rho4 = pow(rho, 4);
+    real sq_alpha_obs = pow(alpha_obs, 2);
+    real r = -inv(2 * sq_rho);
+    
+    for(i in 1:N) {
+      K[i, i] = sq_alpha_obs + delta;
+      for(j in (i + 1):N) {
+        K[i, j] = exp(r * square(x[i] - x[j])) * sq_alpha_obs;
+        K[j, i] = K[i, j];
+      }
+    }
+    return cholesky_decompose(K);
+  }
+  
+  // Matern 3/2
+  matrix m32(vector x, real alpha_obs, real rho, real delta) {
+    int N = rows(x);
+    matrix[N, N] K;
+    real sq_alpha_obs = pow(alpha_obs, 2);
+    real r = -inv(rho);
+    
+    for(i in 1:N) {
+      K[i, i] = sq_alpha_obs + delta;
+      for(j in (i + 1):N) {
+        K[i, j] = (1 - (r * sqrt(3) * abs(x[i] - x[j]))) * 
+                    exp(r * sqrt(3) * abs(x[i] - x[j])) * sq_alpha_obs;
+        K[j, i] = K[i, j];
+      }
+    }
+    return cholesky_decompose(K);
+  }
+  
+  //Matern 5/2 
+   matrix m52(vector x, real alpha_obs, real rho, real delta) {
+    int N = rows(x);
+    matrix[N, N] K;
+    real sq_rho = square(rho);
+    real rho4 = pow(rho, 4);
+    real sq_alpha_obs = pow(alpha_obs, 2);
+    real r = -inv(2 * sq_rho);
+    
+    for(i in 1:N) {
+      K[i, i] = sq_alpha_obs + delta;
+      for(j in (i + 1):N) {
+        K[i, j] = (1 + (sqrt(5) * abs(x[i] - x[j])/rho) + 
+                    ((5 * square(x[i] - x[j]))/ (3 * sq_rho))) * 
+                    exp(- sqrt(5) * abs(x[i] - x[j])/rho) * sq_alpha_obs;
+        K[j, i] = K[i, j];
+      }
+    }
+    return cholesky_decompose(K);
+  }
 }
 
 data {
-	real L;						//boundary condition factor
-	int<lower=1> M_f;				// no. of basis functions	for f	
-	int<lower=1> M_g;				// no. of basis functions	for g	
-	int<lower=1> N;				// sample size
+  int<lower=1> N;				// sample size
 	int<lower=1> D;       // output dims
 	vector[N] inputs;				//matrix of total (training and test) observations
 	real x_min;      // lower bound for true_x prior
@@ -58,12 +85,17 @@ data {
   // Input data specific mean and sd for the y1 and y2
   vector[2] intc_yf;
   vector[2] intc_yg;
+  // covfn diag constant
+  //real nugget;
+}
+
+transformed data {
+// add constant to the diagonal of the covariance matrix for computational stability
+  real delta = 1e-6;
 }
 
 parameters {
-	array[D] vector[M_f] beta_f;
-	array[D] vector[M_g] beta_g;
-	// GP Length scale parameter (temporary storage)
+  // GP Length scale parameter (temporary storage)
   vector<lower=0>[is_vary==1 ? D:1] rho_temp_f;
   // GP marginal SD parameters (temporary storage)
   vector<lower=0>[is_vary==1 ? D:1] alpha_temp_f;
@@ -83,10 +115,13 @@ parameters {
   cholesky_factor_corr[is_corr==1 ? D:0] L_omega_temp_g;
 	array[D] real intercept_yf;
 	array[D] real intercept_yg;
+	// Gaussian link parameters
+	matrix[N, D] eta_f;
+	matrix[N, D] eta_g;
 }
 
-transformed parameters{
-	// Model condition adjustments (temporary to actual parameters)
+transformed parameters {
+  // Model condition adjustments (temporary to actual parameters)
   vector<lower=0>[D] rho_f;
   vector<lower=0>[D] alpha_f;
   vector<lower=0>[D] sigma_f;
@@ -96,12 +131,6 @@ transformed parameters{
 	vector[N] x;
 	matrix[N, D] f;
 	matrix[N, D] g;
-	vector[M_f] diagSPD_f;
-	vector[M_g] diagSPD_g;
-	matrix[M_f, D] SPD_beta_f;
-	matrix[M_g, D] SPD_beta_g;
-	matrix[N,M_f] PHI_f;
-	matrix[N,M_g] PHI_g;
 	cholesky_factor_corr[D] L_omega_f;
 	cholesky_factor_corr[D] L_omega_g;
 	 if (latent) {
@@ -135,49 +164,37 @@ transformed parameters{
     L_omega_f = L_omega_temp_f;
     L_omega_g = L_omega_temp_g;
   }
-	for (m in 1:M_f){
-	  PHI_f[, m] = phi(L, m, x);
-	}
-	for (m in 1:M_g){
-	  PHI_g[, m] = phi(L, m, x);
-	}
-	for (j in 1:D) {
-	  for (m in 1:M_f) { 
-	    if (covfn==1) {
-	      diagSPD_f[m] = sqrt(spd_m32(alpha_f[j], rho_f[j], sqrt(lambda(L, m))));
-	    } else if (covfn==2) {
-	      diagSPD_f[m] = sqrt(spd_m52(alpha_f[j], rho_f[j], sqrt(lambda(L, m))));
-	    } else {
-	      diagSPD_f[m] = sqrt(spd_se(alpha_f[j], rho_f[j], sqrt(lambda(L, m)))); 
-	    }
-	  }
-	  for (m in 1:M_g) {
-	    // TODO: compute this in transformed data
-	    real sqrt_lambda_m = sqrt(lambda(L, m));
-	    if (covfn==1) {
-	      diagSPD_g[m] = sqrt(spd_m32(alpha_g[j], rho_g[j], sqrt_lambda_m)); 
-	    } else if (covfn==2) {
-	      diagSPD_g[m] = sqrt(spd_m52(alpha_g[j], rho_g[j], sqrt_lambda_m)); 
-	    } else {
-	      diagSPD_g[m] = sqrt(spd_se(alpha_g[j], rho_g[j], sqrt_lambda_m)); 
-	    }
-	  }
-	  SPD_beta_f[,j] = diagSPD_f .* beta_f[j];
-	  SPD_beta_g[,j] = diagSPD_g .* beta_g[j];
-	  f[,j] = PHI_f * SPD_beta_f[,j]; 
-	  g[,j] = PHI_g * SPD_beta_g[,j]; 
-	}
-	// For correlated outputs
+  // Computing covariance matrix for standard GP
+  if (covfn == 0) {
+    for (k in 1:D) {
+      matrix[N, N] K_f = se(x, alpha_f[k], rho_f[k], delta);
+      matrix[N, N] K_g = se(x, alpha_g[k], rho_g[k], delta);
+      f[, k] = K_f * eta_f[, k];
+      g[, k] = K_g * eta_g[, k];
+    }
+  } else if (covfn == 1) {
+    for (k in 1:D) {
+      matrix[N, N] K_f = m32(x, alpha_f[k], rho_f[k], delta);
+      matrix[N, N] K_g = m32(x, alpha_g[k], rho_g[k], delta);
+      f[, k] = K_f * eta_f[, k];
+      g[, k] = K_g * eta_g[, k];
+    } 
+  } else if (covfn == 2) {
+    for (k in 1:D) {
+      matrix[N, N] K_f = m52(x, alpha_f[k], rho_f[k], delta);
+      matrix[N, N] K_g = m52(x, alpha_g[k], rho_g[k], delta);
+      f[, k] = K_f * eta_f[, k];
+      g[, k] = K_g * eta_g[, k];
+    } 
+  }
+  // For correlated outputs
   f = f * L_omega_f';
   g = g * L_omega_g';
 }
 
-model{
-  for (j in 1: D) {
-    beta_f[j] ~ normal(0,1);
-    beta_g[j] ~ normal(0,1);
-  }
-	// Priors
+
+model {
+  	// Priors
   if (rho_prior == 0) {
     rho_temp_f ~ normal(ls_param_f[1], ls_param_f[2]); 
     rho_temp_g ~ normal(ls_param_g[1], ls_param_g[2]); 
