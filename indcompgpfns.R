@@ -61,6 +61,125 @@ m52 <- function(x, alpha, rho, delta) {
   return(K)
 }
 
+## Deriv Cov fns
+# Derivative cov fns
+
+# Deriv SE
+deriv_se <- function(x, derivative, alpha_obs, alpha_grad, rho, delta) {
+  N = length(x)
+  K = matrix(nrow = length(x), ncol = length(x))
+  sq_rho = rho^2
+  rho4 = rho^4
+  sq_alpha_obs = alpha_obs^2
+  sq_alpha_grad = alpha_grad^2
+  r = -1/(2 * sq_rho)
+  
+  for (i in 1:N) {
+    if (derivative[i] == 0) {
+      K[i, i] = sq_alpha_obs + delta
+    } else if (derivative[i] == 1) {
+      K[i, i] = (sq_alpha_grad / sq_rho) + delta
+    }
+    if(i == N) {
+      break
+    }
+    for (j in (i + 1):N) {
+      if(derivative[i] == 0 && derivative[j] == 0) {
+        K[i, j] = exp(r * (x[i] - x[j])^2) * sq_alpha_obs
+      } else if(derivative[i] == 0 && derivative[j] == 1) {
+        K[i, j] = exp(r * (x[i] - x[j])^2) * 
+          (x[i] - x[j]) * ((alpha_obs * alpha_grad) / sq_rho)
+      } else if(derivative[i] == 1 && derivative[j] == 0) {
+        K[i, j] = exp(r * (x[i] - x[j])^2) * 
+          (x[j] - x[i]) * ((alpha_grad * alpha_obs) / sq_rho)
+      } else if(derivative[i] == 1 && derivative[j] == 1) {
+        K[i, j] = exp(r * (x[i] - x[j])^2) * 
+          (sq_rho - (x[i] - x[j])^2) * (sq_alpha_grad / rho4)
+      }
+      K[j, i] = K[i, j]
+    }
+  }
+  return(K)
+}
+
+# Deriv Matern 3/2
+deriv_m32 <- function(x, derivative, alpha_obs, alpha_grad, rho, delta) {
+  N = length(x)
+  K = matrix(nrow = length(x), ncol = length(x))
+  sq_rho = rho^2
+  rho4 = rho^4
+  sq_alpha_obs = alpha_obs^2
+  sq_alpha_grad = alpha_grad^2
+  r = -1/rho
+  
+  for (i in 1:N) {
+    if (derivative[i] == 0) {
+      K[i, i] = sq_alpha_obs + delta
+    } else if (derivative[i] == 1) {
+      K[i, i] = (3 * sq_alpha_grad / sq_rho) + delta
+    } 
+    if(i == N) {
+      break
+    }
+    for (j in (i + 1):N) {
+      if(derivative[i] == 0 && derivative[j] == 0) {
+        K[i, j] = (1 - (r * sqrt(3) * abs(x[i] - x[j]))) * 
+          exp(r * sqrt(3) * abs(x[i] - x[j])) * sq_alpha_obs
+      } else if(derivative[i] == 0 && derivative[j] == 1) {
+        K[i, j] = (3 * (x[i] - x[j]) / sq_rho) * 
+          exp(r * sqrt(3) * abs(x[i] - x[j])) * alpha_obs * alpha_grad
+      } else if(derivative[i] == 1 && derivative[j] == 0) {
+        K[i, j] = (3 * (x[j] - x[i]) / sq_rho) * 
+          exp(r * sqrt(3) * abs(x[i] - x[j])) * alpha_obs * alpha_grad
+      } else if(derivative[i] == 1 && derivative[j] == 1) {
+        K[i, j] = (1 + (r * sqrt(3) * abs(x[i] - x[j]))) * 
+          exp(r * sqrt(3) * abs(x[i] - x[j])) * sq_alpha_grad * (3 / sq_rho)
+      }
+      K[j, i] = K[i, j]
+    }
+  }
+  return(K)
+}
+
+# Deriv Matern 5/2
+deriv_m52 <- function(x, d, alpha_obs, alpha_grad, rho, delta) {
+  K = matrix(nrow = length(x), ncol = length(x))
+  N = length(x)
+  sq_rho = rho^2
+  sq_alpha_obs = alpha_obs^2
+  sq_alpha_grad = alpha_grad^2
+  for(i in 1:N) {
+    if(d[i] == 0) {
+      K[i, i] = (alpha_obs^2) + delta
+    } else if(d[i] == 1) {
+      K[i, i] = (5 * sq_alpha_grad / (3 * sq_rho)) + delta
+    }
+    if(i == N) {
+      break
+    }
+    for(j in (i + 1):N) {
+      if(d[i] == 0 && d[j] == 0) {
+        K[i, j] = (1 + (sqrt(5) * abs(x[i] - x[j])/rho) + 
+                     ((5 * (x[i] - x[j])^2)/ (3 * sq_rho))) * 
+          exp(- sqrt(5) * abs(x[i] - x[j])/rho) * sq_alpha_obs
+      } else if(d[i] == 0 && d[j] == 1) {
+        K[i, j] = ((5 * (x[i] - x[j]))/ (3 * sq_rho)) * 
+          (1 + (sqrt(5) * abs(x[i] - x[j])/rho)) * 
+          exp(- sqrt(5) * abs(x[i] - x[j])/rho) * alpha_obs * alpha_grad
+      } else if(d[i] == 1 && d[j] == 0) {
+        K[i, j] = ((5 * (x[j] - x[i]))/ (3 * sq_rho)) * 
+          (1 + (sqrt(5) * abs(x[i] - x[j])/rho)) * 
+          exp(- sqrt(5) * abs(x[i] - x[j])/rho) * alpha_obs * alpha_grad
+      } else if(d[i] == 1 && d[j] == 1) {
+        K[i, j] = (1 + (sqrt(5) * abs(x[i] - x[j])/rho) - 
+                     ((5 * (x[i] - x[j])^2)/ sq_rho)) * 
+          exp(- sqrt(5) * abs(x[i] - x[j])/rho) * (5 * sq_alpha_grad / (3 * sq_rho))
+      }
+      K[j, i] = K[i, j]
+    }
+  }
+  return(K)
+}
 
 ## Draw GP means from mvnorm
 gp_draw <- function(draws, x, Sigma, ...) {
@@ -103,9 +222,10 @@ rlkjcorr <- function ( n , K , eta = 1 ) {
   }
   return(R)
 }
-sim_input <- function(n_obs, true_x, s_x){
-  x_obs <- rnorm(n_obs, true_x, s_x)
-  data.frame(x_true = true_x, x_obs)
+sim_input <- function(n_obs, x_min, x_max, s_x){
+  x_true <- runif(n_obs, x_min, x_max)
+  x_obs <- rnorm(n_obs, x_true, s_x)
+  data.frame(x_true, x_obs)
 }
 gp_sim_data <- function(n_obs, dims, true_x, 
                         rho, alpha, sigma, intc, covfn,...){  # dims is no. of multioutput dimensions (>1)
@@ -137,6 +257,42 @@ gp_sim_data <- function(n_obs, dims, true_x,
   data.frame(y, f)
 }
 
+# Simulate deriv GP
+deriv_gp_sim_data <- function(n_obs, dims, true_x, s_x, intc, intc_deriv,
+                              rho, alpha_obs, alpha_grad, sigma_obs, sigma_grad, covfn, delta...) {  # dims is no. of multioutput dimensions (>1)
+  
+  x_true <- rep(true_x, 2)   # Rep for obs and grad
+  x_obs <- rep(rnorm(length(true_x), true_x, s_x), 2)  # obs_t ~ N(true_t, s)
+  deriv <- c(rep(0, n_obs), rep(1, n_obs)) # Indicator for obs and grad
+  K <- list()
+  for (j in 1:dims){
+    if (covfn == 'm32') {
+      K[[j]] <- deriv_m32(x = x_true, deriv, alpha_obs = alpha_obs[j], 
+                          alpha_grad = alpha_grad[j], rho = rho[j], delta)
+    } else if (covfn == 'm52') {
+      K[[j]] <- deriv_m52(x_true, deriv, alpha_obs = alpha_obs[j], 
+                          alpha_grad = alpha_grad[j], rho = rho[j], delta)
+    } else if (covfn == 'se') {
+      K[[j]] <- deriv_se(x_true, deriv, alpha_obs = alpha_obs[j], 
+                         alpha_grad = alpha_grad[j], rho = rho[j], delta)
+    }
+  }
+  # Draw from joint GP (using true_t)
+  f0 <- matrix(nrow = dims, ncol = length(x_true))
+  for( j in 1:dims){
+    f0[j,] <- gp_draw(1, x_true, K[[j]])  # Computing GP mean
+  } 
+  C <- rlkjcorr(n = 1, K = dims, eta = 1)
+  diag(C) <- 1
+  f <- t(f0) %*% chol(C)     # GP mean with output dims correlations
+  y <- matrix(ncol= ncol(f), nrow = nrow(f))
+  for (j in 1:ncol(f)) {
+    y[1:n_obs,j] <- rnorm((length(f[,j])/2), mean = intc[j] + f[1:n_obs,j], sd = sigma_obs[j])        # Original output
+    y[(n_obs+1):(2*n_obs),j] <- rnorm((length(f[,j])/2), mean = intc_deriv[j] + f[(n_obs+1):(2*n_obs),j], sd = sigma_grad[j])     # Derivative output
+  }
+  data.frame(y, f, deriv, x_true, x_obs)
+}
+
 # For simulating multi-output periodic data
 periodic_data <- function(n_obs, dims, true_x, s_x, rho,
                           alpha, sigma, intc) {
@@ -157,6 +313,36 @@ periodic_data <- function(n_obs, dims, true_x, s_x, rho,
     y[,j] <- rnorm(length(f[,j]), mean = intc[j] + f[,j], sd = sigma[j])        # Original output
   }
   data.frame(y, f, x_true, x_obs)
+}
+
+# For simulating multi-output periodic data
+deriv_periodic_data <- function(n_obs, dims, true_x, s_x, corr, rho,
+                          alpha_obs, alpha_grad, sigma_obs, sigma_grad) {
+  x_true <- rep(true_x, 2)   # Rep for obs and grad
+  x_obs <- rep(rnorm(length(true_x), true_x, s_x), 2)  # obs_t ~ N(true_t, s)
+  deriv <- c(rep(0, n_obs), rep(1, n_obs)) # Indicator for obs and grad
+  f_obs <- matrix(nrow = n_obs, ncol = dims)
+  for(i in 1:n_obs){
+    for(j in 1:dims){
+      f_obs[i, j] <- alpha_obs[j] * sin(x_true[i]/rho[j])
+    }
+  }
+  f_grad <- matrix(nrow = n_obs, ncol = dims)
+  for(i in 1:n_obs){
+    for(j in 1:dims){
+      f_grad[i, j] <- (alpha_grad[j] / rho[j]) * cos(x_true[i] / rho[j])
+    }
+  }
+  f0 <- rbind(f_obs, f_grad)
+  C <- matrix(rep(corr,dims^2), ncol = dims) # Setting within dims output correlation
+  diag(C) <- 1
+  f <- f0 %*% chol(C)     # GP mean with output dims correlations
+  y <- matrix(nrow = 2*n_obs, ncol = dims)
+  for (j in 1:ncol(f)) {
+    y[1:n_obs,j] <- rnorm((length(f[,j])/2), mean = f[1:n_obs,j], sd = sigma_obs[j])        # Original output
+    y[(n_obs+1):(2*n_obs),j] <- rnorm((length(f[,j])/2), mean = f[(n_obs+1):(2*n_obs),j], sd = sigma_grad[j])     # Derivative output
+  }
+  data.frame(y, f, deriv, x_true, x_obs)
 }
 
 ## Bias and RMSE for summary
@@ -247,28 +433,60 @@ compare_summary_py_test <- function(latent_mean, latent_sd, true_value, dims, n_
 }
 
 ## model fit
-gp_model <- function(gpmodel, n_obs, dims, outputs, inputs, latent_sd, latent_inputs, 
-                     x_min, x_max,covfn, is_vary, is_corr, rho_prior, ls_param, msd_param, 
-                     esd_param, mean_intc, sd_intc, iter, warmup, chains, cores, init, adapt_delta){
+gp_model <- function(gpmodel,
+                     n_obs, 
+                     m_obs_f, 
+                     m_obs_g,
+                     dims, 
+                     y_f,
+                     y_g,
+                     inputs,
+                     latent_sd,
+                     latent_inputs, 
+                     x_min, 
+                     x_max, 
+                     is_vary, 
+                     is_corr,
+                     rho_prior, 
+                     ls_param_f,
+                     ls_param_g,
+                     msd_param_f, 
+                     msd_param_g,
+                     esd_param_f,
+                     esd_param_g, 
+                     intc_yf, 
+                     intc_yg,  
+                     c, 
+                     covfn,
+                     iter, 
+                     warmup, 
+                     chains,
+                     cores, 
+                     init, 
+                     adapt_delta){
   ### Exact GP
   gp_data <- list(
     N = n_obs,
     D = dims,
-    y = outputs,
+    y_f = y_f,
+    y_g = y_g,
     inputs = inputs,
     s = latent_sd,
+    covfn = covfn,
     latent = latent_inputs,
     x_min = x_min,
     x_max = x_max,
-    covfn = covfn,
     is_vary = is_vary,
     is_corr = is_corr,
     rho_prior = rho_prior,
-    ls_param = ls_param,
-    msd_param = msd_param,
-    esd_param = esd_param,
-    mean_intc = mean_intc,
-    sd_intc = sd_intc
+    ls_param_f = ls_param_f,
+    ls_param_g = ls_param_g,
+    msd_param_f = msd_param_f,
+    msd_param_g = msd_param_g,
+    esd_param_f = esd_param_f,
+    esd_param_g = esd_param_g,
+    intc_yf = intc_yf,
+    intc_yg = intc_yg
   )
   #### model fitting
   gpfit <- sampling(
@@ -289,8 +507,8 @@ hsgp_model <- function(hsgpmodel,
                        m_obs_f, 
                        m_obs_g,
                        dims, 
-                       outputs1,
-                       outputs2,
+                       y_f,
+                       y_g,
                        inputs,
                        latent_sd,
                        latent_inputs, 
@@ -305,8 +523,8 @@ hsgp_model <- function(hsgpmodel,
                        msd_param_g,
                        esd_param_f,
                        esd_param_g, 
-                       intc_y1, 
-                       intc_y2,  
+                       intc_yf, 
+                       intc_yg,  
                        c, 
                        covfn,
                        iter, 
@@ -323,8 +541,8 @@ hsgp_model <- function(hsgpmodel,
     M_f = m_obs_f,
     M_g = m_obs_g,
     D = dims,
-    y1 = outputs1,
-    y2 = outputs2,
+    y_f = y_f,
+    y_g = y_g,
     inputs = inputs,
     s = latent_sd,
     covfn = covfn,
@@ -340,8 +558,8 @@ hsgp_model <- function(hsgpmodel,
     msd_param_g = msd_param_g,
     esd_param_f = esd_param_f,
     esd_param_g = esd_param_g,
-    intc_y1 = intc_y1,
-    intc_y2 = intc_y2
+    intc_yf = intc_yf,
+    intc_yg = intc_yg
   )
   #### model fitting
   hsgpfit <- sampling(
@@ -355,6 +573,57 @@ hsgp_model <- function(hsgpmodel,
     control = list(adapt_delta = adapt_delta)
   )
   return(hsgpfit)
+}
+
+# Exact GP model
+deriv_gp_model <- function(stanmodel, n_obs, dims, outputs, inputs, latent_sd, latent_inputs, covfn, 
+                     rho_prior, ls_param, msd_param, esd_param, msd_param_grad, esd_param_grad, 
+                     intc_y, intc_yderiv,
+                     is_deriv, is_scale,is_vary, 
+                     is_corr, adapt_delta, iter, warmup, chains, cores, init) {
+  if (is_deriv == 1) {
+    derivative <- c(rep(0, n_obs), rep(1, n_obs))
+    N <- 2* n_obs
+  } else {
+    derivative <- rep(0, n_obs)
+    N <- n_obs
+    outputs <- outputs[1:n_obs,]
+  }
+  gp_data <- list(
+    N = N,
+    M = n_obs,
+    D = dims,
+    y = outputs,
+    derivative = derivative,
+    inputs = inputs,
+    s = latent_sd,
+    latent = latent_inputs,
+    covfn = covfn,
+    rho_prior = rho_prior,
+    ls_param = ls_param,
+    msd_param = msd_param,
+    esd_param = esd_param,
+    msd_param_grad = msd_param_grad,
+    esd_param_grad = esd_param_grad,
+    intc_y = intc_y,
+    intc_yderiv = intc_yderiv,
+    is_deriv = is_deriv,
+    is_scale = is_scale,
+    is_vary = is_vary,
+    is_corr = is_corr
+  )
+  #model fitting
+  fit <- sampling(
+    object = stanmodel,
+    data = gp_data,
+    init = init,
+    chains = chains,
+    warmup = warmup,
+    iter = iter,
+    cores = cores,
+    control = list(adapt_delta = adapt_delta)
+  )
+  return(fit)
 }
 
 # Parameters for GP constant across outputs
@@ -372,6 +641,18 @@ true_params_vary <- function(n_obs, dims, msd_pars, esd_pars, ls_pars, intc_pars
   rho <- rtruncnorm(dims, a = 0.1, b = Inf, mean = ls_pars[1], sd = ls_pars[2]) 
   intc <- rnorm(dims, mean = intc_pars[1], sd = intc_pars[2])# GP length scale
   data.frame(alpha, sigma, rho, intc)
+}
+
+# Parameters for deriv GP varying across outputs
+true_params_deriv_vary <- function(n_obs, dims, deriv_scale, msd_pars, esd_pars, ls_pars, intc_pars, intc_deriv_pars){
+  alpha_grad <- rtruncnorm(dims, a = 0.1, b = Inf, mean = msd_pars[1], sd = msd_pars[2])           # GP marginal SD for f'
+  alpha_obs <- deriv_scale * alpha_grad       # GP marginal SD for f
+  sigma_grad <- rtruncnorm(dims, a = 0.1, b = Inf, mean = esd_pars[1], sd = esd_pars[2])          # Error SD for y'
+  sigma_obs <- deriv_scale * sigma_grad       # Error SD for y
+  rho <- rtruncnorm(dims, a = 0.1, b = Inf, mean = ls_pars[1], sd = ls_pars[2]) # GP length scale
+  intc <- rnorm(dims, mean = intc_pars[1], sd = intc_pars[2])
+  intc_deriv <- rnorm(dims, mean = intc_deriv_pars[1], sd = intc_deriv_pars[2])
+  data.frame(alpha_obs, alpha_grad, sigma_obs, sigma_grad, rho, intc, intc_deriv)
 }
 
 log_gamma_statistic <- function(ranks, max_rank, ranks_to_check = NULL) {

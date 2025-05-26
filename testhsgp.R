@@ -5,7 +5,7 @@ library(ggplot2)
 library(bayesplot)
 
 # Source fns 
-source('hsgpfitfns.R')
+source('indpcompgpfns.R')
 comphsgpmodel <- stan_model('indpcomphsgp_maternclass.stan')
 set.seed(123)
 N <- 50  # higher N will take very long. Better to stick to <=30
