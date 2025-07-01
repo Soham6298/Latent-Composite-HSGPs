@@ -406,7 +406,7 @@ compare_summary <- function(model, variable, dims, true_variable, n_obs, m_appro
              sd, abs_bias, rmse, mae, ranks, rhat, bess, tess, runtime, divergent)
 }
 
-# Summary fucntion for python models
+# Summary function for python models
 compare_summary_py_test <- function(latent_mean, latent_sd, true_value, dims, n_obs, m_approx, 
                                     variable_class, model_name, sim_no, sample_id, n_draws, 
                                     runtime){
@@ -434,9 +434,7 @@ compare_summary_py_test <- function(latent_mean, latent_sd, true_value, dims, n_
 
 ## model fit
 gp_model <- function(gpmodel,
-                     n_obs, 
-                     m_obs_f, 
-                     m_obs_g,
+                     n_obs,
                      dims, 
                      y_f,
                      y_g,
@@ -456,7 +454,6 @@ gp_model <- function(gpmodel,
                      esd_param_g, 
                      intc_yf, 
                      intc_yg,  
-                     c, 
                      covfn,
                      iter, 
                      warmup, 

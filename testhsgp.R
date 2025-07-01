@@ -5,10 +5,11 @@ library(ggplot2)
 library(bayesplot)
 
 # Source fns 
-source('indpcompgpfns.R')
+source('indcompgpfns.R')
 comphsgpmodel <- stan_model('indpcomphsgp_maternclass.stan')
-set.seed(123)
-N <- 50  # higher N will take very long. Better to stick to <=30
+compgpmodel <- stan_model('indpcompexactGP_maternclass.stan')
+set.seed(29)
+N <- 20  # higher N will take very long. Better to stick to <=30
 dims <- 10
 # Set true input x
 x_min <- 0
@@ -20,10 +21,10 @@ marginal_sd_params_f <- c(3, 0.25)
 error_sd_params_f <- c(1, 0.25)
 ls_params_f <- c(1, 0.05)
 marginal_sd_params_g <- c(2, 0.25)
-error_sd_params_g <- c(1, 0.25)
-ls_params_g <- c(1.5, 0.05)
+error_sd_params_g <- c(0.7, 0.25)
+ls_params_g <- c(0.7, 0.05)
 intc_params_y1 <- c(0, 1)
-intc_params_y2 <- c(0, 5)
+intc_params_y2 <- c(0, 10)
 delta <- 1e-12
 covfn <- 'se' # only needed for gp data
 
@@ -42,6 +43,9 @@ latent_model <- 1 # 1 for latent inputs, 0 for manifest
 covfn_model <- 0  # 0 - SE; 1 = Matern3/2; 2 = Matern 5/2
 adapt_delta_model <- 0.95
 
+input_dat <- sim_input(n_obs = N, x_min = x_min, x_max = x_max, s_x = s)
+x_true <- input_dat$x_true
+x_obs <- input_dat$x_obs
 params1 <- true_params_vary(n_obs = N, 
                                dims = dims, 
                                msd_pars = marginal_sd_params_f, 
@@ -78,10 +82,6 @@ y1 <- dat1[1:N,1:dims]
 f <- dat1[1:N,(dims+1):(2*dims)]
 y2 <- dat2[1:N,1:dims]
 g <- dat2[1:N,(dims+1):(2*dims)]
-x_true <- runif(N, x_min, x_max)
-input_dat <- sim_input(n_obs = N, true_x = x_true, s_x = s)
-x_true <- input_dat$x_true
-x_obs <- input_dat$x_obs
 # Check generated GP
 dim_id <- 1
 fplot <- gp_plot(dim_id = dim_id, output = y1, gpfns = f, input = x_true, 
@@ -102,8 +102,8 @@ hsgp_fit <- hsgp_model(comphsgpmodel,
                    x_min = x_min,
                    x_max = x_max,
                    c = 5/4,
-                   outputs1 = y1, 
-                   outputs2 = y2, 
+                   y_f = y1, 
+                   y_g = y2, 
                    inputs = x_obs, 
                    latent_sd = s, 
                    latent_inputs = latent_model, 
@@ -115,8 +115,8 @@ hsgp_fit <- hsgp_model(comphsgpmodel,
                    msd_param_g = marginal_sd_params_model_g,
                    esd_param_f = error_sd_params_model_f,
                    esd_param_g = error_sd_params_model_g,
-                   intc_y1 = intc_params_model_y1,
-                   intc_y2 = intc_params_model_y2,
+                   intc_yf = intc_params_model_y1,
+                   intc_yg = intc_params_model_y2,
                    is_vary = 1, 
                    is_corr = 1, 
                    iter = 2000, 
@@ -127,7 +127,39 @@ hsgp_fit <- hsgp_model(comphsgpmodel,
                    adapt_delta = adapt_delta_model)
 # model output summary
 print(hsgp_fit, pars = c('rho_f', 'alpha_f', 'sigma_f', 'rho_g', 'alpha_g', 'sigma_g','x'))
-traceplot(hsgp_fit, pars = c('rho_f', 'alpha_f', 'sigma_f', 'rho_g', 'alpha_g', 'sigma_g','x'))
+traceplot(hsgp_fit, pars = 'x')#c('rho_f', 'alpha_f', 'sigma_f', 'rho_g', 'alpha_g', 'sigma_g','x'))
+
+# Exact GP
+gp_fit <- gp_model(compgpmodel,
+                       n_obs = N, 
+                       dims = dims,
+                       x_min = x_min,
+                       x_max = x_max,
+                       y_f = y1, 
+                       y_g = y2, 
+                       inputs = x_obs, 
+                       latent_sd = s, 
+                       latent_inputs = latent_model, 
+                       covfn = covfn_model, 
+                       rho_prior = rho_prior_model,
+                       ls_param_f = ls_params_model_f,
+                       ls_param_g = ls_params_model_g, 
+                       msd_param_f = marginal_sd_params_model_f,
+                       msd_param_g = marginal_sd_params_model_g,
+                       esd_param_f = error_sd_params_model_f,
+                       esd_param_g = error_sd_params_model_g,
+                       intc_yf = intc_params_model_y1,
+                       intc_yg = intc_params_model_y2,
+                       is_vary = 1, 
+                       is_corr = 1, 
+                       iter = 2000, 
+                       warmup = 1000, 
+                       chains = 2, 
+                       cores = 2, 
+                       init = 0, 
+                       adapt_delta = adapt_delta_model)
+print(gp_fit, pars = c('rho_f', 'alpha_f', 'sigma_f', 'rho_g', 'alpha_g', 'sigma_g','x'))
+traceplot(gp_fit, pars = 'x')#c('rho_f', 'alpha_f', 'sigma_f', 'rho_g', 'alpha_g', 'sigma_g','x'))
 #### post summary
 x_names <- sprintf('x[%s]', seq(1:N))
 out <- as_draws_matrix(hsgp_fit)
@@ -144,3 +176,19 @@ for(i in 1:length(x_names)) {
 mean(rmse)
 mean(abs_bias)
 mean(sd)
+
+# compare with naive estimate on the basis of the x_obs prior
+n_obs <- 100000
+rmse_x_naive <- vector(length = n_obs)
+mae_x_naive <- vector(length = n_obs)
+s_x <- 0.3
+for (i in 1:n_obs) {
+  # as if we only used x_obs to infer x
+  x_obs <- rnorm(1, 0, s_x)
+  draws_x_prior <- rnorm(2000, x_obs, s_x)
+  rmse_x_naive[i] <- rmse_draws(draws_x_prior, 0)
+  mae_x_naive[i] <- mae_draws(draws_x_prior, 0)
+}
+naive_rmse <- mean(rmse_x_naive)
+naive_mae <- mean(mae_x_naive)
+naive_rmse

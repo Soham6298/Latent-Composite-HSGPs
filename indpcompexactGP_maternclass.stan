@@ -91,7 +91,7 @@ data {
 
 transformed data {
 // add constant to the diagonal of the covariance matrix for computational stability
-  real delta = 1e-6;
+  real delta = 1e-12;
 }
 
 parameters {
