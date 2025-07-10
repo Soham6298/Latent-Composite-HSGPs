@@ -217,6 +217,8 @@ model {
 	for(j in 1:D) {
 	  intercept_yf[j] ~ normal(intc_yf[1], intc_yf[2]);
 	  intercept_yg[j] ~ normal(intc_yg[1], intc_yg[2]);
+	  to_vector(eta_f[, j]) ~ std_normal();
+	  to_vector(eta_g[, j]) ~ std_normal();
 	}
 	// Likelihood
 	for(j in 1:D) {

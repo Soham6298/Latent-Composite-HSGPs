@@ -16,7 +16,7 @@ library(data.table)
 source('indcompgpfns.R')
 
 # Import results from exact, deriv and HSGPs
-compare_table <- readRDS('simulation results/comp_deriv_se_simout.rds')
+compare_table <- readRDS('simulation results/indcompgp_deriv_simout_se.rds')
 compare_table$sim_id <- as.factor(compare_table$sim_id)
 compare_table$n <- as.factor(compare_table$n)
 compare_table$m <- as.factor(compare_table$m)
@@ -24,6 +24,7 @@ str(compare_table$m)
 compare_table$d <- as.factor(compare_table$d)
 compare_table$data_id <- as.factor(compare_table$data_id)
 compare_x <- subset(compare_table, class == 'x')
+levels(compare_table$m)
 #compare_x <- subset(compare_x, m != 'exact')
 compare_rho <- subset(compare_table, class == 'rho')
 compare_alpha <- subset(compare_table, class == 'alpha')
@@ -69,7 +70,7 @@ naive_mae <- mean(mae_x_naive)
 # Prepare plots
 label_outdims <- c('D = 5','D = 10','D = 20')
 # Check and change labels according to the number of basis functions for HSGPs
-label_models <- c('Deriv GP', 'Exact GP', 'HSGP')
+label_models <- c('Deriv GP', 'HSGP', 'Deriv HSGP')
 # Posterior bias plots
 df_rmse_eff <- as.data.frame(m_rmse_eff$`m`)
 levels(df_rmse_eff$cond__) <- label_outdims
@@ -112,7 +113,7 @@ p_rmse_eff_s <- ggplot(df_rmse_eff_s, aes(x = effect1__, y = estimate__,
 # Combine the plots
 p_latentx_eff <- (p_rmse_eff + p_rmse_eff_s) + plot_layout(axis_titles = 'collect')
 
-ggsave('comp_se_latentx.pdf',
+ggsave('comp_deriv_se_latentx.pdf',
        p_latentx_eff,
        dpi = 300,
        width = 60,

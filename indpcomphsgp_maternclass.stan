@@ -28,6 +28,13 @@ functions {
 		S = (alpha^2) * ((2 * tgamma(3) * 5^(2.5)) / (0.75 * rho^5)) * ((5/rho^2) + (w^2))^(-3);
 		return S;
 	}
+	real spd_se_deriv(real alpha, real rho, real w) {
+	  real S;
+    real sq_alpha = alpha^2;
+    real sq_rho = rho^2;
+    S = (sq_alpha/sq_rho) * ((rho * sqrt(2*pi())) + (sq_rho * w^2) -1) * exp(-0.5*(sq_rho)*(w^2));
+    return S;
+	}
 }
 
 data {
@@ -43,7 +50,9 @@ data {
 	matrix[N, D] y_g; // for output 2
 	real<lower=0> s; // measurement sd for latent inputs
 	// User input for which covariance function to use
-	int<lower=0, upper=2> covfn;  //0: se, 1: m32, 2: m52
+	int<lower=0, upper=2> covfn;  // 0: se, 1: m32, 2: m52
+	int<lower=0, upper=1> is_deriv_f; // 0: standard spd, 1: deriv spd
+	int<lower=0, upper=1> is_deriv_g; // 0: standard spd, 1: deriv spd
 	int<lower=0, upper=1> latent; // indicator if x is latent. 1: latent inputs
 	int<lower=0, upper=1> is_vary; // 0 = constant hyperparams for each dims; 1 = varying params
   int<lower=0, upper=1> is_corr; // 0 = no correlation b/w dims; 1 = correlated dims
@@ -148,7 +157,11 @@ transformed parameters{
 	    } else if (covfn==2) {
 	      diagSPD_f[m] = sqrt(spd_m52(alpha_f[j], rho_f[j], sqrt(lambda(L, m))));
 	    } else {
-	      diagSPD_f[m] = sqrt(spd_se(alpha_f[j], rho_f[j], sqrt(lambda(L, m)))); 
+	      if(is_deriv_f==1) {
+	        diagSPD_f[m] = sqrt(spd_se_deriv(alpha_f[j], rho_f[j], sqrt(lambda(L, m))));
+	      } else {
+	        diagSPD_f[m] = sqrt(spd_se(alpha_f[j], rho_f[j], sqrt(lambda(L, m))));
+	      }
 	    }
 	  }
 	  for (m in 1:M_g) {
@@ -159,7 +172,11 @@ transformed parameters{
 	    } else if (covfn==2) {
 	      diagSPD_g[m] = sqrt(spd_m52(alpha_g[j], rho_g[j], sqrt_lambda_m)); 
 	    } else {
-	      diagSPD_g[m] = sqrt(spd_se(alpha_g[j], rho_g[j], sqrt_lambda_m)); 
+	      if(is_deriv_g==1) {
+	        diagSPD_g[m] = sqrt(spd_se_deriv(alpha_g[j], rho_g[j], sqrt(lambda(L, m))));
+	      } else {
+	        diagSPD_g[m] = sqrt(spd_se(alpha_g[j], rho_g[j], sqrt(lambda(L, m))));
+	      } 
 	    }
 	  }
 	  SPD_beta_f[,j] = diagSPD_f .* beta_f[j];
