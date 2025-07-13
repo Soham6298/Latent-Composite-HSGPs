@@ -61,6 +61,27 @@ m52 <- function(x, alpha, rho, delta) {
   return(K)
 }
 
+se_deriv <- function(x, alpha, rho, delta) {
+  K = matrix(nrow = length(x), ncol = length(x))
+  N = length(x)
+  sq_rho = rho^2
+  rho4 = rho^4
+  sq_alpha = alpha^2
+  r = -1/(2 * sq_rho)
+  for(i in 1:N) {
+    K[i, i] = (sq_alpha / sq_rho) + delta
+    if(i == N) {
+      break
+    }
+    for(j in (i + 1):N) {
+      K[i, j] = exp(r * (x[i] - x[j])^2) * 
+        (sq_rho - (x[i] - x[j])^2) * (sq_alpha / rho4)
+      K[j, i] = K[i, j]
+    }
+  }
+  return(K)
+}
+
 ## Deriv Cov fns
 # Derivative cov fns
 
@@ -255,6 +276,37 @@ gp_sim_data <- function(n_obs, dims, true_x,
     y[,j] <- rnorm((length(f[,j])), mean = intc[j] + f[,j], sd = sigma[j])
   }
   data.frame(y, f)
+}
+
+test_gp_sim_data <- function(n_obs, dims, true_x, 
+                        rho, alpha, sigma, intc, covfn,...){  # dims is no. of multioutput dimensions (>1)
+  x_true <- true_x
+  x_obs <- rnorm(length(true_x), true_x, s_x)  # obs_t ~ N(true_t, s)
+  delta <- 1e-12
+  K <- list()
+  for (j in 1:dims){
+    if(covfn == 'm32') {
+      K[[j]] <- m32(x_true, alpha = alpha[j], rho = rho[j], delta) 
+    } else if(covfn=='m52') {
+      K[[j]] <- m52(x_true, alpha = alpha[j], rho = rho[j], delta)
+    } else if(covfn == 'se_deriv') {
+      K[[j]] <- se_deriv(x_true, alpha = alpha[j], rho = rho[j], delta)
+    } else {
+      K[[j]] <- se(x_true, alpha = alpha[j], rho = rho[j], delta)
+    }
+  }
+  ### Draw from joint GP (using true_t)
+  f0 <- matrix(nrow = dims, ncol = length(x_true))
+  for( j in 1:dims){
+    f0[j,] <- gp_draw(1, x_true, K[[j]])  # Computing GP mean
+  } 
+  C <- rlkjcorr(n = 1, K = dims, eta = 1)
+  f <- t(f0) %*% chol(C)     # GP mean with output dims correlations
+  y <- matrix(ncol= ncol(f), nrow = nrow(f))
+  for (j in 1:ncol(f)) {
+    y[,j] <- rnorm((length(f[,j])), mean = intc[j] + f[,j], sd = sigma[j])
+  }
+  data.frame(y, f, x_obs, x_true)
 }
 
 # Simulate deriv GP
@@ -574,6 +626,125 @@ hsgp_model <- function(hsgpmodel,
     control = list(adapt_delta = adapt_delta)
   )
   return(hsgpfit)
+}
+
+test_hsgp_model <- function(testhsgpmodel, 
+                       n_obs, 
+                       m_obs,
+                       dims, 
+                       y,
+                       inputs,
+                       latent_sd,
+                       latent_inputs, 
+                       x_min, 
+                       x_max, 
+                       is_vary, 
+                       is_corr,
+                       rho_prior, 
+                       ls_param,
+                       msd_param,
+                       esd_param, 
+                       intc,   
+                       c, 
+                       covfn,
+                       iter, 
+                       warmup, 
+                       chains,
+                       cores, 
+                       init, 
+                       adapt_delta){
+  ### HSGP
+  L <- choose_L(inputs, c = c) 
+  testhsgpdata <- list(
+    L = L,
+    N = n_obs,
+    M = m_obs,
+    D = dims,
+    y = y,
+    inputs = inputs,
+    s = latent_sd,
+    covfn = covfn,
+    latent = latent_inputs,
+    x_min = x_min,
+    x_max = x_max,
+    is_vary = is_vary,
+    is_corr = is_corr,
+    rho_prior = rho_prior,
+    ls_param = ls_param,
+    msd_param = msd_param,
+    esd_param = esd_param,
+    intc = intc
+  )
+  #### model fitting
+  hsgpfit <- sampling(
+    object = testhsgpmodel,
+    data   = testhsgpdata,
+    iter   = iter,
+    warmup = warmup,
+    chains = chains,
+    cores = cores,
+    init = init,
+    control = list(adapt_delta = adapt_delta)
+  )
+  return(hsgpfit)
+}
+
+test_gp_model <- function(testgpmodel, 
+                          n_obs,
+                          dims, 
+                          y,
+                          inputs,
+                          latent_sd,
+                          latent_inputs, 
+                          x_min, 
+                          x_max, 
+                          is_vary, 
+                          is_corr,
+                          rho_prior, 
+                          ls_param,
+                          msd_param,
+                          esd_param, 
+                          intc,  
+                          covfn,
+                          delta,
+                          iter, 
+                          warmup, 
+                          chains,
+                          cores, 
+                          init, 
+                          adapt_delta){
+  ### GP
+  testgpdata <- list(
+    N = n_obs,
+    D = dims,
+    y = y,
+    inputs = inputs,
+    s = latent_sd,
+    covfn = covfn,
+    delta = delta,
+    latent = latent_inputs,
+    x_min = x_min,
+    x_max = x_max,
+    is_vary = is_vary,
+    is_corr = is_corr,
+    rho_prior = rho_prior,
+    ls_param = ls_param,
+    msd_param = msd_param,
+    esd_param = esd_param,
+    intc = intc
+  )
+  #### model fitting
+  gpfit <- sampling(
+    object = testgpmodel,
+    data   = testgpdata,
+    iter   = iter,
+    warmup = warmup,
+    chains = chains,
+    cores = cores,
+    init = init,
+    control = list(adapt_delta = adapt_delta)
+  )
+  return(gpfit)
 }
 
 # Exact GP model

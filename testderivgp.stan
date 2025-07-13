@@ -1,46 +1,86 @@
 functions {
-  // HSGP functions
-	real lambda(real L, int m) {
-		real lam;
-		lam = ((m*pi())/(2*L))^2;
-				
-		return lam;
-	}
-	vector phi(real L, int m, vector x) {
-		vector[rows(x)] fi;
-		fi = 1/sqrt(L) * sin(m*pi()/(2*L) * (x+L));
-				
-		return fi;
-	}
-	// Spectral densities
-	real spd_se(real alpha, real rho, real w) {
-		real S;
-		S = (alpha^2) * sqrt(2*pi()) * rho * exp(-0.5*(rho^2)*(w^2));
-				
-		return S;
-	}
-	real spd_m32(real alpha, real rho, real w) {
-		real S;
-		S = (alpha^2) * ((2 * tgamma(2) * 3^(1.5)) / (0.5 * rho^3)) * ((3/rho^2) + (w^2))^(-2);
-		return S;
-	}
-	real spd_m52(real alpha, real rho, real w) {
-		real S;
-		S = (alpha^2) * ((2 * tgamma(3) * 5^(2.5)) / (0.75 * rho^5)) * ((5/rho^2) + (w^2))^(-3);
-		return S;
-	}
-	real spd_se_deriv(real alpha, real rho, real w) {
-	  real S;
-    real sq_alpha = alpha^2;
-    real sq_rho = rho^2;
-    S = (sq_alpha/sq_rho) * ((rho * sqrt(2*pi())) + (sq_rho * w^2) -1) * exp(-0.5*(sq_rho)*(w^2));
-    return S;
-	}
+  // base covariance fn
+  
+  // SE
+    matrix se(vector x, real alpha, real rho, real delta) {
+    int N = rows(x);
+    matrix[N, N] K;
+    real sq_rho = square(rho);
+    real rho4 = pow(rho, 4);
+    real sq_alpha = pow(alpha, 2);
+    real r = -inv(2 * sq_rho);
+    
+    for(i in 1:N) {
+      K[i, i] = sq_alpha + delta;
+      for(j in (i + 1):N) {
+        K[i, j] = exp(r * square(x[i] - x[j])) * sq_alpha;
+        K[j, i] = K[i, j];
+      }
+    }
+    return cholesky_decompose(K);
+  }
+  
+  // Matern 3/2
+  matrix m32(vector x, real alpha, real rho, real delta) {
+    int N = rows(x);
+    matrix[N, N] K;
+    real sq_alpha = pow(alpha, 2);
+    real r = -inv(rho);
+    
+    for(i in 1:N) {
+      K[i, i] = sq_alpha + delta;
+      for(j in (i + 1):N) {
+        K[i, j] = (1 - (r * sqrt(3) * abs(x[i] - x[j]))) * 
+                    exp(r * sqrt(3) * abs(x[i] - x[j])) * sq_alpha;
+        K[j, i] = K[i, j];
+      }
+    }
+    return cholesky_decompose(K);
+  }
+  
+  //Matern 5/2 
+   matrix m52(vector x, real alpha, real rho, real delta) {
+    int N = rows(x);
+    matrix[N, N] K;
+    real sq_rho = square(rho);
+    real rho4 = pow(rho, 4);
+    real sq_alpha = pow(alpha, 2);
+    real r = -inv(2 * sq_rho);
+    
+    for(i in 1:N) {
+      K[i, i] = sq_alpha + delta;
+      for(j in (i + 1):N) {
+        K[i, j] = (1 + (sqrt(5) * abs(x[i] - x[j])/rho) + 
+                    ((5 * square(x[i] - x[j]))/ (3 * sq_rho))) * 
+                    exp(- sqrt(5) * abs(x[i] - x[j])/rho) * sq_alpha;
+        K[j, i] = K[i, j];
+      }
+    }
+    return cholesky_decompose(K);
+  }
+  
+  // Deriv SE
+  matrix se_deriv(vector x, real alpha, real rho, real delta) {
+    int N = rows(x);
+    matrix[N, N] K;
+    real sq_rho = square(rho);
+    real rho4 = pow(rho, 4);
+    real sq_alpha = pow(alpha, 2);
+    real r = -inv(2 * sq_rho);
+    
+    for (i in 1:N) {
+      K[i, i] = (sq_alpha / sq_rho) + delta;
+      for (j in (i + 1):N) {
+        K[i, j] = exp(r * square(x[i] - x[j])) * 
+            (sq_rho - square(x[i] - x[j])) * (sq_alpha / rho4);
+        K[j, i] = K[i, j];
+      }
+    }
+    return cholesky_decompose(K);
+  }
 }
 
 data {
-	real L;						//boundary condition factor
-	int<lower=1> M;				// no. of basis functions
 	int<lower=1> N;				// sample size
 	int<lower=1> D;       // output dims
 	vector[N] inputs;				//matrix of total (training and test) observations
@@ -60,16 +100,17 @@ data {
   vector[2] esd_param;
   // Input data specific mean and sd for the y1 and y2
   vector[2] intc;
+  real delta;
 }
 
 transformed data {
 // add constant to the diagonal of the covariance matrix for computational stability
-  real delta = 1e-12;
+  //real delta = 1e-10;
 }
 
 parameters {
-  // HSGP link parameter
-	array[D] vector[M] beta;
+	// Gaussian link parameters
+	matrix[N,D] eta;
 	// GP Length scale parameter (temporary storage)
   vector<lower=0>[is_vary==1 ? D:1] rho_temp;
   // GP marginal SD parameters (temporary storage)
@@ -85,16 +126,13 @@ parameters {
 	array[D] real intercept;
 }
 
-transformed parameters {
+transformed parameters{
 	// Model condition adjustments (temporary to actual parameters)
   vector<lower=0>[D] rho;
   vector<lower=0>[D] alpha;
   vector<lower=0>[D] sigma;
 	vector[N] x;
 	matrix[N, D] f;
-	vector[M] diagSPD;
-  matrix[M,D] SPD_beta;
-  matrix[N,M] PHI;
 	cholesky_factor_corr[D] L_omega;
 	 if (latent) {
 	  // x = inputs + z * s;
@@ -119,31 +157,37 @@ transformed parameters {
   } else {
     L_omega = L_omega_temp;
   }
-   for (m in 1:M){
-	  PHI[, m] = phi(L, m, x);
-	  }
-	  for (j in 1:D) {
-	    for (m in 1:M) {
-	      if (covfn==1) {
-	        diagSPD[m] = sqrt(spd_m32(alpha[j], rho[j], sqrt(lambda(L, m))));
-	      } else if (covfn==2) {
-	        diagSPD[m] = sqrt(spd_m52(alpha[j], rho[j], sqrt(lambda(L, m))));
-	      } else if (covfn==3) {
-	        diagSPD[m] = sqrt(spd_se_deriv(alpha[j], rho[j], sqrt(lambda(L, m))));
-	      } else {
-	        diagSPD[m] = sqrt(spd_se(alpha[j], rho[j], sqrt(lambda(L, m))));
-	      }
-	    }
-	    SPD_beta[,j] = diagSPD .* beta[j];
-	    f[,j] = PHI * SPD_beta[,j]; 
-	  }
-	  // For correlated outputs
+  // Computing covariance matrix for standard GP
+   if (covfn == 1) {
+    for (j in 1:D) {
+      matrix[N, N] K = m32(x, alpha[j], rho[j], delta);
+      f[, j] = K * eta[, j];
+    } 
+  } else if (covfn == 2) {
+    for (j in 1:D) {
+      matrix[N, N] K = m52(x, alpha[j], rho[j], delta);
+      f[, j] = K * eta[, j];
+    } 
+  } else if (covfn == 3) {
+    for (j in 1:D) {
+     matrix[N, N] K = se_deriv(x, alpha[j], rho[j], delta);
+      f[, j] = K * eta[, j];
+      // print(eta);
+      //print(eta);
+     }
+    } else {
+    for (j in 1:D) {
+      matrix[N, N] K = se(x, alpha[j], rho[j], delta);
+      f[,j] = K * eta[,j];
+    }
+  }
+    // For correlated outputs
   f = f * L_omega';
 }
 
 model{
   for (j in 1: D) {
-    beta[j] ~ normal(0,1);
+    to_vector(eta[,j]) ~ std_normal();
   }
 	// Priors
   if (rho_prior == 0) {
