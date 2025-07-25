@@ -8,7 +8,7 @@ library(bayesplot)
 source('indcompgpfns.R')
 testderivhsgpmodel <- stan_model('testderivhsgp.stan')
 testderivgpmodel <- stan_model('testderivgp.stan')
-set.seed(2414)
+set.seed(55125)
 ## Specify data conditions
 N <- 20  # higher N will take very long. Better to stick to <=30
 dims <- 5
@@ -104,7 +104,7 @@ print(hsgp_se_fit, pars = c('rho', 'alpha', 'sigma','x'))
 traceplot(hsgp_se_fit, pars = 'x')#c('rho_f', 'alpha_f', 'sigma_f', 'rho_g', 'alpha_g', 'sigma_g','x'))
 
 # fit hsgp se deriv model
-min_m <- 11 #ceiling(1.75 * (5/4) * (max(x_true) - min(x_true))/(2 * ls_params[1])) # mean(rho) = 0.2, S = 0.5 (half range of x), c = 5/4
+#min_m <- 33 #ceiling(1.75 * (5/4) * (max(x_true) - min(x_true))/(2 * ls_params[1])) # mean(rho) = 0.2, S = 0.5 (half range of x), c = 5/4
 hsgp_se_deriv_fit <- test_hsgp_model(testhsgpmodel = testderivhsgpmodel,
                        n_obs = N, 
                        dims = dims,

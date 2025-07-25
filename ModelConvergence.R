@@ -14,8 +14,8 @@ library(gridExtra)
 ## Set variable names, sample points and number of trials
 # Source functions
 source('indcompgpfns.R')
-simdata_out <- readRDS('simulation results/indcompgp_deriv_simout_se.rds')  #change according to output file name from SimStudy
-fix_plot_labels <- c('Deriv GP', 'HSGP', 'Deriv HSGP') # Change according to simulation scenario
+simdata_out <- readRDS('simulation results/id_hsgps_simout.rds')  #change according to output file name from SimStudy
+fix_plot_labels <- c('Deriv-GP','i-GP', 'id-GP', 'i-HSGP', 'id-HSGP') # Change according to simulation scenario
 simdata_out$d <- as.factor(simdata_out$d)
 simdata_out$m <- as.factor(simdata_out$m)
 simdata_out$n <- as.factor(simdata_out$n)
@@ -37,6 +37,10 @@ convsummary <- simout_x %>%
 convsummary$rhat_name <- 'Rhat'
 convsummary$bess_name <- 'Bulk-ESS'
 convsummary$tess_name <- 'Tail-ESS'
+levels(simout_x$m)
+#simout_x$m <- ordered(simout_x$m)
+#levels(simout_x$m) <- c("derivgp", "idgp", "idhsgp", "igp", "ihsgp")
+simout_x$m <- factor(simout_x$m, levels = c("derivgp", "igp", "idgp", "ihsgp", "idhsgp"))
 # Rhat plot
 x_rhat_summary_plot <- ggplot(convsummary, aes(x = d, y = mrhat, colour = model_name)) + 
   theme_bw(base_size = 30, base_family = 'Times') + 
@@ -44,7 +48,7 @@ x_rhat_summary_plot <- ggplot(convsummary, aes(x = d, y = mrhat, colour = model_
   facet_wrap(~rhat_name) +
   labs(x = 'Output dimensions', y = 'Values', colour = 'Models') + 
   theme(axis.ticks = element_line(linewidth = 3)) +
-  scale_colour_manual(labels = fix_plot_labels, values = c("#E69F00", "#009E73", "#CC79A7")) +
+  scale_colour_manual(labels = fix_plot_labels, values = c("#56B4E9", "#E69F00", "#009E73", "#CC79A7", "#0072B2")) +
   ggtitle('(a)')
 # Bulk-ESS plot
 x_ess_bulk_summary_plot <- ggplot(convsummary, aes(x = d, y = mbess, colour = model_name)) + 
@@ -54,7 +58,7 @@ x_ess_bulk_summary_plot <- ggplot(convsummary, aes(x = d, y = mbess, colour = mo
   scale_y_log10() +
   labs(x = 'Output dimensions', y = 'Values', colour = 'Models') + 
   theme(axis.ticks = element_line(linewidth = 3)) +
-  scale_colour_manual(labels = fix_plot_labels, values = c("#E69F00", "#009E73", "#CC79A7"))
+  scale_colour_manual(labels = fix_plot_labels, values = c("#56B4E9", "#E69F00", "#009E73", "#CC79A7", "#0072B2"))
 # Tail-ESS plot
 x_ess_tail_summary_plot <- ggplot(convsummary, aes(x = d, y = mtess, colour = model_name)) + 
   theme_bw(base_size = 30, base_family = 'Times') +
@@ -63,7 +67,7 @@ x_ess_tail_summary_plot <- ggplot(convsummary, aes(x = d, y = mtess, colour = mo
   scale_y_log10() +
   labs(x = 'Output dimensions', y = 'Values', colour = 'Models') + 
   theme(axis.ticks = element_line(linewidth = 3)) +
-  scale_colour_manual(labels = fix_plot_labels, values = c("#E69F00", "#009E73", "#CC79A7"))
+  scale_colour_manual(labels = fix_plot_labels, values = c("#56B4E9", "#E69F00", "#009E73", "#CC79A7", "#0072B2"))
 # combine diags for latent x
 p_latentx <- x_rhat_summary_plot + x_ess_bulk_summary_plot + x_ess_tail_summary_plot + 
   plot_layout(axis_titles = 'collect', guides = 'collect') & theme(axis.title = element_blank())
@@ -83,6 +87,10 @@ convsummary <- simout_x %>%
 convsummary$rhat_name <- 'Rhat'
 convsummary$bess_name <- 'Bulk-ESS'
 convsummary$tess_name <- 'Tail-ESS'
+levels(simout_x$m)
+#simout_x$m <- ordered(simout_x$m)
+#levels(simout_x$m) <- c("derivgp", "idgp", "idhsgp", "igp", "ihsgp")
+simout_x$m <- factor(simout_x$m, levels = c("derivgp", "igp", "idgp", "ihsgp", "idhsgp"))
 # Rhat plot
 pars_rhat_summary_plot <- ggplot(convsummary, aes(x = d, y = mrhat, colour = model_name)) + 
   theme_bw(base_size = 30, base_family = 'Times') + 
@@ -90,7 +98,7 @@ pars_rhat_summary_plot <- ggplot(convsummary, aes(x = d, y = mrhat, colour = mod
   facet_wrap(~rhat_name) +
   labs(x = 'Output dimensions', y = 'Values', colour = 'Models') + 
   theme(axis.ticks = element_line(linewidth = 3)) +
-  scale_colour_manual(labels = fix_plot_labels, values = c("#E69F00", "#009E73", "#CC79A7")) +
+  scale_colour_manual(labels = fix_plot_labels, values = c("#56B4E9", "#E69F00", "#009E73", "#CC79A7", "#0072B2")) +
   ggtitle('(b)')
 # Bulk-ESS plot
 pars_ess_bulk_summary_plot <- ggplot(convsummary, aes(x = d, y = mbess, colour = model_name)) + 
@@ -100,7 +108,7 @@ pars_ess_bulk_summary_plot <- ggplot(convsummary, aes(x = d, y = mbess, colour =
   scale_y_log10() +
   labs(x = 'Output dimensions', y = 'Values', colour = 'Models') + 
   theme(axis.ticks = element_line(linewidth = 3)) +
-  scale_colour_manual(labels = fix_plot_labels, values = c("#E69F00", "#009E73", "#CC79A7"))
+  scale_colour_manual(labels = fix_plot_labels, values = c("#56B4E9", "#E69F00", "#009E73", "#CC79A7", "#0072B2"))
 # Tail-ESS plot
 pars_ess_tail_summary_plot <- ggplot(convsummary, aes(x = d, y = mtess, colour = model_name)) + 
   theme_bw(base_size = 30, base_family = 'Times') +
@@ -109,7 +117,7 @@ pars_ess_tail_summary_plot <- ggplot(convsummary, aes(x = d, y = mtess, colour =
   scale_y_log10() +
   labs(x = 'Output dimensions', y = 'Values', colour = 'Models') + 
   theme(axis.ticks = element_line(linewidth = 3)) +
-  scale_colour_manual(labels = fix_plot_labels, values = c("#E69F00", "#009E73", "#CC79A7"))
+  scale_colour_manual(labels = fix_plot_labels, values = c("#56B4E9", "#E69F00", "#009E73", "#CC79A7", "#0072B2"))
 # Combine diags for hyperparameters
 p_hyperpars <- pars_rhat_summary_plot + pars_ess_bulk_summary_plot + pars_ess_tail_summary_plot + 
   plot_layout(axis_titles = 'collect', guides = 'collect')
@@ -117,10 +125,10 @@ p_hyperpars <- pars_rhat_summary_plot + pars_ess_bulk_summary_plot + pars_ess_ta
 # Combine all figures
 p_convdiag <- p_latentx / p_hyperpars + plot_layout(axis_titles = 'collect', guides = 'collect') & 
   theme(axis.title.y = element_blank())
-ggsave('comp_deriv_se_valid.pdf',
+ggsave('id_hsgps_valid.pdf',
        p_convdiag,
        dpi = 300,
-       width = 40,
-       height = 20,
+       width = 50,
+       height = 30,
        units = 'cm')
 
