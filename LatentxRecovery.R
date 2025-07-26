@@ -16,7 +16,7 @@ library(data.table)
 source('indcompgpfns.R')
 
 # Import results from exact, deriv and HSGPs
-compare_table <- readRDS('simulation results/idhsgp_single_simout_n100.rds')
+compare_table <- readRDS('simulation results/id_hsgps_simout_sameintc.rds')
 compare_table$sim_id <- as.factor(compare_table$sim_id)
 compare_table$n <- as.factor(compare_table$n)
 compare_table$m <- as.factor(compare_table$m)
@@ -75,12 +75,12 @@ naive_mae <- mean(mae_x_naive)
 # Prepare plots
 label_outdims <- c('D = 5','D = 10','D = 20')
 # Check and change labels according to the number of basis functions for HSGPs
-label_models <- c('i-HSGP', 'd-HSGP', 'id-HSGP')#c('Deriv-HSGP','i-GP', 'id-GP', 'i-HSGP', 'id-HSGP') #c('Deriv GP', 'HSGP', 'Deriv HSGP')
+label_models <- c('Deriv-GP','i-GP', 'id-GP', 'i-HSGP', 'id-HSGP')#c('i-HSGP', 'd-HSGP', 'id-HSGP')# #c('Deriv GP', 'HSGP', 'Deriv HSGP')
 # Posterior bias plots
 df_rmse_eff <- as.data.frame(m_rmse_eff$`m`)
 df_rmse_eff$effect1__ <- ordered(df_rmse_eff$effect1__)
-levels(df_rmse_eff$effect1__) <- c('deriv_hsgp', 'idhsgp','obs_hsgp')#c("derivgp", "idgp", "idhsgp", "igp", "ihsgp")
-df_rmse_eff$effect1__ <- factor(df_rmse_eff$effect1__, levels = c('obs_hsgp', 'deriv_hsgp','idhsgp'))#c("derivgp", "igp", "idgp", "ihsgp", "idhsgp"))
+levels(df_rmse_eff$effect1__) <- c("derivgp", "idgp", "idhsgp", "igp", "ihsgp")#c('deriv_hsgp', 'idhsgp','obs_hsgp')#
+df_rmse_eff$effect1__ <- factor(df_rmse_eff$effect1__, levels = c("derivgp", "igp", "idgp", "ihsgp", "idhsgp"))#c('obs_hsgp', 'deriv_hsgp','idhsgp'))
 levels(df_rmse_eff$cond__) <- label_outdims
 levels(df_rmse_eff$effect1__) <- label_models
 p_rmse_eff <- ggplot(df_rmse_eff, aes(x = effect1__, y = estimate__)) +
@@ -103,8 +103,8 @@ p_rmse_eff <- ggplot(df_rmse_eff, aes(x = effect1__, y = estimate__)) +
 
 df_rmse_eff_s <- as.data.frame(m_rmse_eff_s$`true_value:m`)
 df_rmse_eff_s$effect2__ <- ordered(df_rmse_eff_s$effect2__)
-levels(df_rmse_eff_s$effect2__) <- c('deriv_hsgp', 'idhsgp','obs_hsgp')#c("derivgp", "idgp", "idhsgp", "igp", "ihsgp")
-df_rmse_eff_s$effect2__ <- factor(df_rmse_eff_s$effect2__, levels = c('obs_hsgp', 'deriv_hsgp','idhsgp'))#c("derivgp", "igp", "idgp", "ihsgp", "idhsgp"))
+levels(df_rmse_eff_s$effect2__) <- c("derivgp", "idgp", "idhsgp", "igp", "ihsgp")#c('deriv_hsgp', 'idhsgp','obs_hsgp')#
+df_rmse_eff_s$effect2__ <- factor(df_rmse_eff_s$effect2__, levels = c("derivgp", "igp", "idgp", "ihsgp", "idhsgp"))#c('obs_hsgp', 'deriv_hsgp','idhsgp'))#
 levels(df_rmse_eff_s$cond__) <- label_outdims
 levels(df_rmse_eff_s$effect2__) <- label_models
 p_rmse_eff_s <- ggplot(df_rmse_eff_s, aes(x = effect1__, y = estimate__, 
@@ -124,7 +124,7 @@ p_rmse_eff_s <- ggplot(df_rmse_eff_s, aes(x = effect1__, y = estimate__,
 # Combine the plots
 p_latentx_eff <- (p_rmse_eff + p_rmse_eff_s) + plot_layout(axis_titles = 'collect')
 
-ggsave('id_hsgps_single_latentx.pdf',
+ggsave('id_hsgps_sameintc_latentx.pdf',
        p_latentx_eff,
        dpi = 300,
        width = 80,
