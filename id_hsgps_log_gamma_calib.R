@@ -13,7 +13,8 @@ library(data.table)
 source('indcompgpfns.R')
 
 # Import results from exact and HSGPs
-compare_table <- readRDS('simulation results/id_hsgps_simout_sameintc.rds')
+compare_table <- readRDS('simulation results/idhsgp_single_simout_n100_extra.rds')
+n_samples <- compare_table$n[1]
 compare_table$sim_id <- as.factor(compare_table$sim_id)
 compare_table$n <- as.factor(compare_table$n)
 compare_table$m <- as.factor(compare_table$m)
@@ -22,26 +23,30 @@ compare_table$d <- as.factor(compare_table$d)
 compare_table$data_id <- as.factor(compare_table$data_id)
 compare_x <- subset(compare_table, class == 'x')
 levels(compare_x$m)
+n_models <- length(levels(compare_x$m))
+n_d <- length(levels(compare_table$d))
+#n_samples <- compare_table$n[1]
 # Change factor labels according to different simulation studies
 compare_x$m <- ordered(compare_x$m)
-levels(compare_x$m) <- c("derivgp", "idgp", "idhsgp", "igp", "ihsgp")
-compare_x$m <- factor(compare_x$m, levels = c("derivgp", "igp", "idgp", "ihsgp", "idhsgp"))
+#levels(compare_x$m) <- c("derivgp", "idgp", "idhsgp", "igp", "ihsgp")
+compare_x$m <- ordered(compare_x$m, levels = c('obs_hsgp', 'deriv_hsgp', 'ihsgp','idhsgp'))#factor(compare_x$m, levels = c("derivgp", "igp", "idgp", "ihsgp", "idhsgp"))
 # Create indicator for each simulation conditions
 compare_x$subset_id <- paste0(compare_x$n,'_',compare_x$m,'_',compare_x$d)
+max_rank = max(compare_x$ranks)
 # Separate results accordingly
 list_df <- split(compare_x, compare_x$subset_id)
 # Compute log gamma scores for each condition
 gamma_stat <- list()
-for(i in 1:15){
-  gamma_stat[[i]] <- rep(NA, 20)
-    for(j in 1:20){
-      testrank_subset <- subset(list_df[[i]],  pars == paste0('x','[',j,']'))
-      gamma_stat[[i]][j] <- log_gamma_statistic(testrank_subset$rank, max_rank = 1000)
-    }
+for(i in 1:(n_models*n_d)) {
+  gamma_stat[[i]] <- rep(NA, n_d)
+    for(j in 1:n_samples) {
+      testrank_subset <- subset(list_df[[i]],  pars == paste0('rho','[',j,']'))
+      gamma_stat[[i]][j] <- log_gamma_statistic(testrank_subset$rank, max_rank = max_rank)
+  }
 }
 # Create long table formate for the log gamma scores
 gamma_stat_long <- list()
-for(i in 1:15){
+for(i in 1:(n_models*n_d)){
     gamma_stat_long[[i]] <- data.frame(log_gamma = gamma_stat[[i]], 
                                        n = list_df[[i]]$n, 
                                        m = list_df[[i]]$m, 
@@ -56,7 +61,7 @@ log_gamma_stat <- rbindlist(gamma_stat_long)
 log_gamma_stat$log_gamma = ifelse(is.infinite(log_gamma_stat$log_gamma),
                                   -1000, log_gamma_stat$log_gamma)
 # Compute log gamma - critical value
-log_gamma_stat$log_gamma_diff <- log_gamma_stat$log_gamma - log(SBC:::adjust_gamma(N = 50, K = 1000, L = 1))
+log_gamma_stat$log_gamma_diff <- log_gamma_stat$log_gamma - log(SBC:::adjust_gamma(N = 50, K = max_rank, L = 1))
 # Subset the results for unique values
 log_gamma_data <- subset(log_gamma_stat, sim_id==1) 
 
@@ -80,7 +85,7 @@ cols <- c("#000000","#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00",
 # errorbar plots
 label_outdims <- c('D = 5','D = 10','D = 20')
 # Check and change labels according to the number of basis functions for HSGPs
-label_models <- c("derivgp", "igp", "idgp", "ihsgp", "idhsgp")
+label_models <- c('HSGP(SE)', 'HSGP(dSE)', 'i-HSGP','id-HSGP')#c('i-GP', 'i-HSGP') #c('Deriv-GP','i-GP', 'id-GP', 'i-HSGP', 'id-HSGP')
 df_log_gamma_eff <- as.data.frame(m_log_gamma_eff$m)
 levels(df_log_gamma_eff$cond__) <- label_outdims
 levels(df_log_gamma_eff$effect1__) <- label_models
@@ -127,7 +132,7 @@ p_log_gamma_eff_s <- ggplot(data = df_log_gamma_eff_s, aes(x = effect1__, y = es
 # Combine plots
 p_log_gamma_eff <- (p_log_gamma_eff + p_log_gamma_eff_s) + plot_layout(axis_titles = 'collect')
 
-ggsave('id_hsgps_log_gamma_eff.pdf',
+ggsave('idhsgp_n100_log_gamma_eff_rho.pdf',
        p_log_gamma_eff,
        dpi = 300,
        width = 80,
