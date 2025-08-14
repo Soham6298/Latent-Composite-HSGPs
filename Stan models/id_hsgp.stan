@@ -76,6 +76,9 @@ parameters {
   cholesky_factor_corr[is_corr==1 ? D:0] L_omega_temp_g;
 	array[D] real intercept_yf;
 	array[D] real intercept_yg;
+	// Hierarchical prior on x
+	//real mu_x;
+	//real<lower=0> sigma_x;
 }
 
 transformed parameters {
@@ -98,20 +101,20 @@ transformed parameters {
 	cholesky_factor_corr[D] L_omega_g;
 	 if (latent) {
 	  // x = inputs + z * s;
-	  x = x_temp;
+	  x = x_temp;//mu_x + sigma_x * x_temp;
 	} else{
 	  x = inputs;
 	}
 	// if params are constant for dims, it will be repeated
   if (is_vary) {
-    rho = rho_temp;
+    rho = rho_temp;//rep_vector(0.3, D);//
     alpha_f = alpha_temp_f;
     sigma_f = sigma_temp_f;
     alpha_g = alpha_temp_g;
     sigma_g = sigma_temp_g;
   } else {
     for (k in 1:D) {
-      rho[k] = rho_temp[1];
+      rho[k] = rho_temp[1];//0.3;//
       alpha_f[k] = alpha_temp_f[1];
       sigma_f[k] = sigma_temp_f[1];
       alpha_g[k] = alpha_temp_g[1];
@@ -167,10 +170,13 @@ model {
   L_omega_temp_g ~ lkj_corr_cholesky(1);
   if (latent) {
     // z ~ std_normal();
-    inputs ~ normal(x_temp, s);
+    inputs ~ normal(x, s);
 	}
 	// set prior on x to match data generating process 
 	x_temp ~ uniform(x_min, x_max);
+	//x_temp ~ std_normal();
+	//mu_x ~ normal(0.5, 0.2);
+	//sigma_x ~ normal(0,1);
 	for(j in 1:D) {
 	  intercept_yf[j] ~ normal(intc_yf[1], intc_yf[2]);
 	  intercept_yg[j] ~ normal(intc_yg[1], intc_yg[2]);
