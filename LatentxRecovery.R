@@ -1,5 +1,6 @@
 ## We perform model evaluation for exact and HSGPs based on latent input estimation from simulation studies
-## Need to load the output dataframe from the simulation study code before generating figures here
+## Need to load the simulation result by running the simulation study code or the available results in the folder
+## Take care with the ordering of model labels from the sim results. It is crucial to reproduce the figures. 
 
 library(dplyr)
 library(tidyverse)
@@ -16,7 +17,7 @@ library(data.table)
 source('indcompgpfns.R')
 
 # Import results from exact, deriv and HSGPs
-compare_table <- readRDS('simulation results/idhsgp_single_simout_n100_extra.rds')
+compare_table <- readRDS('simulation results/pcGP_data_scenario.rds')
 compare_table$sim_id <- as.factor(compare_table$sim_id)
 compare_table$n <- as.factor(compare_table$n)
 compare_table$m <- as.factor(compare_table$m)
@@ -25,25 +26,13 @@ str(compare_table$m)
 compare_table$d <- as.factor(compare_table$d)
 compare_table$data_id <- as.factor(compare_table$data_id)
 compare_x <- subset(compare_table, class == 'x')
-levels(compare_rho$m)
-#compare_x <- subset(compare_x, m != 'hsgp')
-compare_rho <- subset(compare_table, class == 'rho')
-str(compare_rho)
-compare_alpha <- subset(compare_table, class == 'alpha')
-compare_sigma <- subset(compare_table, class == 'sigma')
-#levels(compare_x$m)
-# Change factor labels according to different simulation studies
-#compare_x$m <- factor(compare_x$m, levels = c('exact', '22', '26', '30', 'pyroVI'))
+levels(compare_x$m)
 
 # Fit summary models
 formula_rmse <- bf(rmse ~ (1 + m) * d + (1 + m | data_id) + s(true_value, by = m),
                    sigma ~ (1 + m) * d + (1 + m | data_id) + s(true_value, by = m))
 
-#formula_sd <- bf(sd ~ (1 + m) * d + (1 + m | data_id) + s(true_value, by = m),
-#                 sigma ~ (1 + m) * d + (1 + m | data_id) + s(true_value, by = m))
-
-m_x_rmse <- brm(formula_rmse, data = compare_rho, chains = 2, cores = 2, file_refit = 'on_change')
-#saveRDS(m_x_rmse, 'DerivHSGPsimsummary.rds')
+m_x_rmse <- brm(formula_rmse, data = compare_x, chains = 2, cores = 2, file_refit = 'on_change')
 
 ## Extract summary results as conditional eff data
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
@@ -72,17 +61,16 @@ naive_mae <- mean(mae_x_naive)
 
 # Prepare plots
 label_outdims <- c('D = 5','D = 10','D = 20')
-# Check and change labels according to the number of basis functions for HSGPs
-label_models <- c('HSGP (SE)', 'HSGP (dSE)', 'i-HSGP', 'ideriv-HSGP')#c('Deriv-GP','i-GP', 'ideriv-GP', 'i-HSGP', 'ideriv-HSGP')#c('i-GP', 'i-HSGP') #
+# Check and change labels according to the comparison models 
+label_models <- c('pcGP', 'pcHSGP') #c('sHSGP', 'sdHSGP', 'pcHSGP', 'pdHSGP')#c('dGP','pcGP', 'pdGP', 'pcHSGP', 'pdHSGP')#
 # Posterior bias plots
 df_rmse_eff <- as.data.frame(m_rmse_eff$`m`)
-#df_rmse_eff$effect1__ <- ordered(df_rmse_eff$effect1__)
-#levels(df_rmse_eff$effect1__) <- c('deriv_hsgp', 'idhsgp','obs_hsgp')##
-df_rmse_eff$effect1__ <- factor(df_rmse_eff$effect1__, levels = c('obs_hsgp', 'deriv_hsgp','ihsgp','idhsgp'))#c("derivgp", "igp", "idgp", "ihsgp", "idhsgp"))#
+# Reorder lables to match the label_models order (comment out for pcGP data scenario)
+#df_rmse_eff$effect1__ <- factor(df_rmse_eff$effect1__, levels = c('obs_hsgp', 'deriv_hsgp','ihsgp','idhsgp'))#c("derivgp", "igp", "idgp", "ihsgp", "idhsgp"))#
 levels(df_rmse_eff$cond__) <- label_outdims
 levels(df_rmse_eff$effect1__) <- label_models
 p_rmse_eff <- ggplot(df_rmse_eff, aes(x = effect1__, y = estimate__)) +
-  theme_bw(base_size=35,
+  theme_bw(base_size = 50,
            base_family = 'Times') +
   geom_point(size = 3.5 ,
              position = position_dodge(width = 0.7)) +
@@ -90,42 +78,37 @@ p_rmse_eff <- ggplot(df_rmse_eff, aes(x = effect1__, y = estimate__)) +
                 width = 0.5,
                 linewidth = 1.0,
                 position = position_dodge(width = 0.7)) +
-  #annotate('point', x=0.6, y=naive_rmse, colour = '#D55E00', size = 5) +
-  #annotate('text', x = 0.8, y = naive_rmse + 0.04, label = 'Prior', size = 6, colour = '#D55E00') +
   facet_wrap(~cond__) +
   labs(x = 'Models', y = 'RMSE') +
-  #guides(fill = 'none') + 
   theme(axis.ticks = element_line(linewidth = 3), 
         axis.text.x = element_text(angle = 30, vjust = 1, hjust = 1)) +
   scale_colour_manual(values = c("#000000" )) + ggtitle('(a)')
 
 df_rmse_eff_s <- as.data.frame(m_rmse_eff_s$`true_value:m`)
-#df_rmse_eff_s$effect2__ <- ordered(df_rmse_eff_s$effect2__)
-#levels(df_rmse_eff_s$effect2__) <- c('deriv_hsgp', 'idhsgp','obs_hsgp')#c("derivgp", "idgp", "idhsgp", "igp", "ihsgp")#
-df_rmse_eff_s$effect2__ <- factor(df_rmse_eff_s$effect2__, levels = c('obs_hsgp', 'deriv_hsgp', 'ihsgp', 'idhsgp'))#c("derivgp", "igp", "idgp", "ihsgp", "idhsgp"))#
+# Reorder lables to match the label_models order (comment out for pcGP data scenario)
+#df_rmse_eff_s$effect2__ <- factor(df_rmse_eff_s$effect2__, levels = c('obs_hsgp', 'deriv_hsgp', 'ihsgp', 'idhsgp'))#c("derivgp", "igp", "idgp", "ihsgp", "idhsgp"))#
 levels(df_rmse_eff_s$cond__) <- label_outdims
 levels(df_rmse_eff_s$effect2__) <- label_models
 p_rmse_eff_s <- ggplot(df_rmse_eff_s, aes(x = effect1__, y = estimate__, 
                                           colour = effect2__, fill = effect2__)) +
-  theme_bw(base_size=35,
+  theme_bw(base_size = 50,
            base_family = 'Times') +
   geom_ribbon(aes(ymin = df_rmse_eff_s$lower__, ymax = df_rmse_eff_s$upper__), alpha = 0.4) +
   geom_smooth(se = FALSE) +
   facet_wrap(~cond__) +
   labs(x = 'True value', y = 'RMSE', colour = 'Models', fill = 'Models') +
-  #guides(fill = 'none') + 
   theme(axis.ticks = element_line(linewidth = 3), 
-        axis.text.x = element_text(angle = 30, vjust = 1, hjust = 1)) +
+        axis.text.x = element_text(angle = 30, vjust = 1, hjust = 1), legend.position = 'bottom') +
   scale_colour_manual(values = c("#56B4E9", "#E69F00", "#009E73", "#CC79A7", "#0072B2")) + 
   scale_fill_manual(values = c("#56B4E9", "#E69F00", "#009E73", "#CC79A7", "#0072B2")) + ggtitle('(b)')
 
 # Combine the plots
 p_latentx_eff <- (p_rmse_eff + p_rmse_eff_s) + plot_layout(axis_titles = 'collect')
 
-ggsave('id-hsgps_compare_extra_latentx_rho.pdf',
+ggsave('igp_data_compare_latentx.pdf',
        p_latentx_eff,
        dpi = 300,
        width = 80,
-       height = 20,
+       height = 30,
        units = 'cm')
 
