@@ -21,3 +21,6 @@ Check the GP hyperparameter estimates and recovery of true simulated values usin
 
 ## Case study
 We apply our models on a single-cell biology data involving the maturation process of erythroid cells from progenitor cells (https://www.nature.com/articles/s41586-019-0933-9) to esimate latent cellular ordering. We compare the results between pcHSGP and pdHSGP as well as experimental time. See 'CaseStudy_pcHSGP.R' and 'CaseStudy_pdHSGP.R' to re-analyse the data provided in 'casestudydata' folder. The result figures can be generated using the script 'CaseStudyFigures.R'. For more details, check the 'Real-World Case Study' section of our paper.
+
+## Figures
+The figures from our experiments is also provided in the folder 'Figures'.
