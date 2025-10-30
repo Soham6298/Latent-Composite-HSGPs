@@ -1,5 +1,5 @@
 # Latent variable estimation with composite Hilbert space Gaussian processes
-This is a repository for the codes used in the paper: Latent variable estimation with composite Hilbert space Gaussian processes. The codes are arranged as follows. Check 'indcompgpfns.R' to call necessary functions that can be used in all of the R scripts (for e.g: to customise any simulation conditions, fit models, prepare summary plots).
+This is a repository for the codes used in the paper: Latent variable estimation with composite Hilbert space Gaussian processes (https://doi.org/10.48550/arXiv.2510.25371). The codes are arranged as follows. Check 'indcompgpfns.R' to call necessary functions that can be used in all of the R scripts (for e.g: to customise any simulation conditions, fit models, prepare summary plots).
 
 ## Models
 Our developed models: partial composite and partial derivative Hilbert space Gaussian processes (pcHSGPs and pdHSGPs) for Squared Exponential (SE) covariance functions are given as 'pcHSGP.stan' and 'pdHSGP.stan' to be found in 'Stan models' folder. Their exact GP counterparts, joint derivative GPs among others that are used as comparitive models in our experiments are also provided in the same folder.
